@@ -1,24 +1,23 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabBarBackground } from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import index from './index';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
+        tabBarActiveTintColor: '#3FFFA8',
+        tabBarInactiveTintColor: '#FFFFFF',
         tabBarStyle: {
-          backgroundColor: Colors[colorScheme].background,
+          backgroundColor: '#0B132B',
           borderTopWidth: 0,
+          height: 60,
+          paddingBottom: 8,
         },
         headerShown: false,
       }}
@@ -27,13 +26,58 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          title: 'Home',
           tabBarIcon: ({ color }) => (
             <HapticTab>
-              <IconSymbol name="home" color={color} />
+              <MaterialIcons name="home" size={24} color={color} />
+            </HapticTab>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="learn"
+        options={{
+          title: 'Learn',
+          tabBarIcon: ({ color }) => (
+            <HapticTab>
+              <MaterialIcons name="school" size={24} color={color} />
+            </HapticTab>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="daily"
+        options={{
+          title: 'Daily',
+          tabBarIcon: ({ color }) => (
+            <HapticTab>
+              <MaterialIcons name="today" size={24} color={color} />
+            </HapticTab>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="achievements"
+        options={{
+          title: 'Badges',
+          tabBarIcon: ({ color }) => (
+            <HapticTab>
+              <MaterialIcons name="emoji-events" size={24} color={color} />
+            </HapticTab>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => (
+            <HapticTab>
+              <MaterialIcons name="person" size={24} color={color} />
             </HapticTab>
           ),
         }}
       />
     </Tabs>
   );
-}</HapticTab>
+}

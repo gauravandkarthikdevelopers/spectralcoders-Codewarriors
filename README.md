@@ -1,50 +1,46 @@
-# Welcome to your Expo app 👋
+# Code Warriors
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Mobile Cybersecurity Learning App
 
-## Get started
+### Project Status: First Prototype
 
-1. Install dependencies
+Code Warriors is an interactive mobile app to educate cybersecurity principles through gamified exercises. The first prototype shows the fundamental functionality and user experience of the app.
 
-   ```bash
-   npm install
-   ```
+## Features Implemented
 
-2. Start the app
+### User Experience
+- **Complete Onboarding Process**: Friendly onboarding process with options for personalization
+- **Local User Storage**: Secure local storage of user data and progress
+- **Profile System**: Fully customizable user profiles with progress markers
 
-   ```bash
-    npx expo start
-   ```
+### Learning Content
+- **Challenge System**: Incrementally increasing difficulty with dynamic cybersecurity challenges
+- **3 Fully Implemented Challenges**: Fully implemented for the first three levels of challenges
+- **Badge System**: Progressions system where achievements are marked as completed through badge completion on successfully overcoming obstacles and achieving goals
 
-In the output, you'll find options to open the app in a
+### Technical Implementation
+- **Front-end Implementation**: Scalable UI along with modernized design patterns
+- **State Management**: Proper state management handling for user process and application data
+- **Local Data Persistence**: Safe storage of user data and progress
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Coming Soon
+- More challenge levels (4-10)
+- Improved analytics and progress display
+- Social share features
+- Push reminder notifications
+- Customization features
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Development
 
-## Get a fresh project
+This app is developed with React Native and Expo, giving a cross-platform mobile experience that is compatible with both iOS and Android devices.
 
-When you're ready, run:
+## Getting Started
 
-```bash
-npm run reset-project
-```
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run the development server: `npm run start`
+4. Launch the app in your Expo Go app or emulator
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Contributors
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project is being worked on by the spetreal coders who are taking part in the namma suruksha hackathon in presidency hackathon
