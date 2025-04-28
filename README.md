@@ -43,4 +43,4 @@ This app is developed with React Native and Expo, giving a cross-platform mobile
 
 ## Contributors
 
-This project is being worked on by the spetreal coders who are taking part in the namma suruksha hackathon in presidency hackathon
+This project is being worked on by the spetreal coders who are taking part in the namma suruksha hackathon in presidency university
