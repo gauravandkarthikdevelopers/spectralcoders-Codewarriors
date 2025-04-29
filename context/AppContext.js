@@ -6,6 +6,12 @@ import {
   getUserData,
   getProgressData
 } from '../utils/storage';
+import { 
+  logChildActivity, 
+  subscribeToParentalControls, 
+  updateParentalControls,
+  subscribeToChildActivity
+} from '../utils/firebase';
 
 // Sample badges data
 const initialBadges = [
@@ -312,6 +318,28 @@ const initialModules = {
   }
 };
 
+// Define user types
+const USER_TYPE = {
+  CHILD: 'child',
+  PARENT: 'parent',
+  NONE: 'none'
+};
+
+// Define parental control default settings
+const initialParentalControls = {
+  enabled: true,
+  parentalPassword: '12345678',
+  blockedWebsites: [],
+  screenTimeLimit: 0, // in minutes, 0 means no limit
+  activityLog: [],
+  lastAccessed: null,
+  sleepModeEnabled: false,
+  sleepModeStartTime: '22:00',
+  sleepModeEndTime: '07:00',
+  appUsageStats: {},
+  appTimeRestrictions: {}
+};
+
 const AppContext = createContext();
 
 export const useAppContext = () => useContext(AppContext);
@@ -337,6 +365,28 @@ export default function AppProvider({ children }) {
 
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [parentalControls, setParentalControls] = useState(initialParentalControls);
+  
+  // New state for user type and connection
+  const [userType, setUserType] = useState(USER_TYPE.NONE);
+  const [userAccount, setUserAccount] = useState(null);
+  const [connectedChildId, setConnectedChildId] = useState(null);
+  const [connectedParentId, setConnectedParentId] = useState(null);
+  const [pendingAccessCode, setPendingAccessCode] = useState(null);
+  const [childActivities, setChildActivities] = useState([]);
+  const [showAccessApproval, setShowAccessApproval] = useState(false);
+
+  // Clear all AsyncStorage data on app startup
+  const clearAllStorageData = async () => {
+    try {
+      await AsyncStorage.clear();
+      console.log('All AsyncStorage data cleared for prototype mode');
+      return true;
+    } catch (error) {
+      console.error('Error clearing AsyncStorage:', error);
+      return false;
+    }
+  };
 
   // Load user data from storage on component mount
   useEffect(() => {
@@ -344,38 +394,19 @@ export default function AppProvider({ children }) {
       try {
         setLoading(true);
         
-        // Check if app has been launched before
-        const firstLaunch = await AsyncStorage.getItem('firstLaunch');
-        if (firstLaunch === null) {
-          setIsFirstLaunch(true);
-          await AsyncStorage.setItem('firstLaunch', 'false');
-        } else {
-          setIsFirstLaunch(false);
-        }
+        // For prototype: Clear any stored data on startup
+        await clearAllStorageData();
         
-        // Load user data using the imported utility
-        const parsedUserData = await getUserData();
-        if (parsedUserData) {
-          setUserData(parsedUserData);
-          
-          // Update login streak
-          const today = new Date().toDateString();
-          if (parsedUserData.lastActive && parsedUserData.lastActive !== today) {
-            updateLoginStreak();
-          }
-        }
+        // For prototype: Always set as first launch
+        setIsFirstLaunch(true);
         
-        // Load progress data using the imported utility
-        const parsedProgressData = await getProgressData();
-        if (parsedProgressData) {
-          setProgressData(parsedProgressData);
-        }
-        
-        // Check if we need to generate a daily challenge
-        if (!parsedUserData.currentChallenge) {
-          // No current challenge, generate one
-          setTimeout(() => generateNewDailyChallenge(), 1000);
-        }
+        // Reset to default state
+        setUserType(USER_TYPE.NONE);
+        setUserAccount(null);
+        setConnectedChildId(null);
+        setConnectedParentId(null);
+        setPendingAccessCode(null);
+        setShowAccessApproval(false);
         
       } catch (error) {
         console.error('Error loading data:', error);
@@ -386,6 +417,180 @@ export default function AppProvider({ children }) {
     
     loadUserData();
   }, []);
+
+  // Setup Firebase connections for child account
+  const setupChildFirebaseConnections = (childId) => {
+    // Subscribe to parental control changes
+    const unsubscribeControls = subscribeToParentalControls(childId, (controls) => {
+      if (controls) {
+        setParentalControls({
+          ...initialParentalControls,
+          ...controls
+        });
+      }
+    });
+    
+    return () => {
+      unsubscribeControls();
+    };
+  };
+  
+  // Setup Firebase connections for parent account
+  const setupParentFirebaseConnections = (childId) => {
+    // Subscribe to child activities
+    const unsubscribeActivities = subscribeToChildActivity(childId, (activities) => {
+      setChildActivities(activities);
+    });
+    
+    // Subscribe to parental controls (to keep in sync)
+    const unsubscribeControls = subscribeToParentalControls(childId, (controls) => {
+      if (controls) {
+        setParentalControls({
+          ...initialParentalControls,
+          ...controls
+        });
+      }
+    });
+    
+    return () => {
+      unsubscribeActivities();
+      unsubscribeControls();
+    };
+  };
+
+  // Save parental controls whenever they change
+  useEffect(() => {
+    const saveParentalControls = async () => {
+      try {
+        await AsyncStorage.setItem('parentalControls', JSON.stringify(parentalControls));
+        
+        // If we have a child ID and are a parent, update Firebase
+        if (connectedChildId && userType === USER_TYPE.PARENT) {
+          await updateParentalControls(connectedChildId, parentalControls);
+        }
+      } catch (error) {
+        console.error('Error saving parental controls:', error);
+      }
+    };
+    
+    saveParentalControls();
+  }, [parentalControls, connectedChildId, userType]);
+
+  // Log activity for child
+  const logActivity = (activity) => {
+    if (!activity) return;
+    
+    try {
+      console.log("Logging activity:", activity);
+      
+      // Add to local parental controls
+      const timestamp = new Date().toISOString();
+      const activityItem = {
+        timestamp,
+        activity
+      };
+      
+      setParentalControls(prev => ({
+        ...prev,
+        activityLog: [...(prev.activityLog || []), activityItem]
+      }));
+      
+      // If child account is connected, log to Firebase
+      if (userType === USER_TYPE.CHILD && userAccount && userAccount.id) {
+        // Use a timeout to ensure we don't block the UI
+        setTimeout(() => {
+          logChildActivity(userAccount.id, activity)
+            .then(result => {
+              if (!result.success) {
+                console.error("Failed to log activity to Firebase:", result.error);
+              }
+            })
+            .catch(error => {
+              console.error("Error logging activity to Firebase:", error);
+            });
+        }, 0);
+      }
+    } catch (error) {
+      console.error('Error logging activity:', error);
+    }
+  };
+
+  // Set user type and account data
+  const setUserTypeAndAccount = async (type, account) => {
+    try {
+      await AsyncStorage.setItem('userType', type);
+      
+      if (type === USER_TYPE.CHILD) {
+        await AsyncStorage.setItem('childAccount', JSON.stringify(account));
+        
+        // If approved, set up Firebase connections
+        if (account.approved && account.id) {
+          setupChildFirebaseConnections(account.id);
+        } else if (account.accessCode) {
+          setPendingAccessCode(account.accessCode);
+          setShowAccessApproval(true);
+        }
+      } else if (type === USER_TYPE.PARENT) {
+        await AsyncStorage.setItem('parentAccount', JSON.stringify(account));
+        
+        // If parent has connected children, set up listeners
+        if (account.childrenIds && account.childrenIds.length > 0) {
+          setConnectedChildId(account.childrenIds[0]);
+          setupParentFirebaseConnections(account.childrenIds[0]);
+        }
+      }
+      
+      setUserType(type);
+      setUserAccount(account);
+      
+      return true;
+    } catch (error) {
+      console.error('Error setting user type:', error);
+      return false;
+    }
+  };
+  
+  // Update child account (e.g., when approved by parent)
+  const updateChildAccount = async (updatedAccount) => {
+    try {
+      await AsyncStorage.setItem('childAccount', JSON.stringify(updatedAccount));
+      
+      setUserAccount(updatedAccount);
+      
+      // If newly approved, set up Firebase connections
+      if (updatedAccount.approved && updatedAccount.id && !connectedChildId) {
+        setConnectedChildId(updatedAccount.id);
+        setupChildFirebaseConnections(updatedAccount.id);
+        setShowAccessApproval(false);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating child account:', error);
+      return false;
+    }
+  };
+  
+  // Clear user account data (logout)
+  const clearUserAccount = async () => {
+    try {
+      await AsyncStorage.removeItem('userType');
+      await AsyncStorage.removeItem('childAccount');
+      await AsyncStorage.removeItem('parentAccount');
+      
+      setUserType(USER_TYPE.NONE);
+      setUserAccount(null);
+      setConnectedChildId(null);
+      setConnectedParentId(null);
+      setPendingAccessCode(null);
+      setShowAccessApproval(false);
+      
+      return true;
+    } catch (error) {
+      console.error('Error clearing user account:', error);
+      return false;
+    }
+  };
 
   // Define the save functions at component level so they can be used across the component
   const saveUserData = async (data) => {
@@ -420,8 +625,7 @@ export default function AppProvider({ children }) {
 
   const completeOnboarding = async () => {
     try {
-      // Set flag that app has been launched before
-      await AsyncStorage.setItem('hasLaunchedBefore', 'true');
+      // For prototype: Don't store first launch flag
       setIsFirstLaunch(false);
       
       // Update first login badge
@@ -883,20 +1087,151 @@ export default function AppProvider({ children }) {
     setIsFirstLaunch(false);
   };
 
+  // Parental control functions
+  const setupParentalControls = (password) => {
+    setParentalControls(prev => ({
+      ...prev,
+      enabled: true,
+      parentalPassword: password,
+      lastAccessed: new Date().toISOString()
+    }));
+    return true;
+  };
+
+  const verifyParentalPassword = (password) => {
+    return password === parentalControls.parentalPassword;
+  };
+
+  const addBlockedWebsite = (website) => {
+    if (!parentalControls.blockedWebsites.includes(website)) {
+      setParentalControls(prev => ({
+        ...prev,
+        blockedWebsites: [...prev.blockedWebsites, website]
+      }));
+      return true;
+    }
+    return false;
+  };
+
+  const removeBlockedWebsite = (website) => {
+    setParentalControls(prev => ({
+      ...prev,
+      blockedWebsites: prev.blockedWebsites.filter(site => site !== website)
+    }));
+    return true;
+  };
+
+  const setScreenTimeLimit = (minutes) => {
+    setParentalControls(prev => ({
+      ...prev,
+      screenTimeLimit: minutes
+    }));
+    return true;
+  };
+
+  const toggleSleepMode = (enabled) => {
+    setParentalControls(prev => ({
+      ...prev,
+      sleepModeEnabled: enabled
+    }));
+    logActivity(enabled ? 'Enabled sleep mode' : 'Disabled sleep mode');
+    return true;
+  };
+
+  const setSleepModeSchedule = (startTime, endTime) => {
+    setParentalControls(prev => ({
+      ...prev,
+      sleepModeStartTime: startTime,
+      sleepModeEndTime: endTime
+    }));
+    logActivity(`Updated sleep mode schedule: ${startTime} - ${endTime}`);
+    return true;
+  };
+
+  const logAppUsage = (appName, durationMinutes) => {
+    setParentalControls(prev => {
+      const updatedStats = { ...prev.appUsageStats };
+      updatedStats[appName] = (updatedStats[appName] || 0) + durationMinutes;
+      
+      return {
+        ...prev,
+        appUsageStats: updatedStats
+      };
+    });
+  };
+
+  const setAppTimeRestriction = (appName, dailyLimitMinutes) => {
+    setParentalControls(prev => {
+      const updatedRestrictions = { ...prev.appTimeRestrictions };
+      updatedRestrictions[appName] = dailyLimitMinutes;
+      
+      return {
+        ...prev,
+        appTimeRestrictions: updatedRestrictions
+      };
+    });
+    logActivity(`Set ${dailyLimitMinutes} minutes limit for ${appName}`);
+    return true;
+  };
+
+  const removeAppTimeRestriction = (appName) => {
+    setParentalControls(prev => {
+      const updatedRestrictions = { ...prev.appTimeRestrictions };
+      delete updatedRestrictions[appName];
+      
+      return {
+        ...prev,
+        appTimeRestrictions: updatedRestrictions
+      };
+    });
+    logActivity(`Removed time restriction for ${appName}`);
+    return true;
+  };
+
   return (
     <AppContext.Provider
       value={{
         userData,
         progressData,
+        parentalControls,
         isFirstLaunch,
         loading,
+        userType,
+        userAccount,
+        connectedChildId,
+        connectedParentId,
+        pendingAccessCode,
+        childActivities,
+        showAccessApproval,
+        USER_TYPE,
+        
+        // App functionality
         saveProfile,
         completeOnboarding,
         skipOnboarding,
         resetProgress,
         completeChallenge,
         completeLessonAndUpdateXP,
-        updateXPAndLevel
+        updateXPAndLevel,
+        
+        // User account management
+        setUserTypeAndAccount,
+        updateChildAccount,
+        clearUserAccount,
+        clearAllStorageData,
+        
+        // Parental controls
+        setupParentalControls,
+        verifyParentalPassword,
+        logActivity,
+        addBlockedWebsite,
+        removeBlockedWebsite,
+        setScreenTimeLimit,
+        toggleSleepMode,
+        setSleepModeSchedule,
+        logAppUsage,
+        setAppTimeRestriction,
+        removeAppTimeRestriction
       }}
     >
       {children}

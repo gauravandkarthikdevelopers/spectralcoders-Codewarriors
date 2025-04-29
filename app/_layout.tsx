@@ -6,6 +6,22 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import AppProvider from '../context/AppContext.js';
 import { useAppContext } from '../context/AppContext.js';
 import OnboardingScreen from '../components/Onboarding';
+import { registerBackgroundTasks } from '../utils/backgroundTasks';
+import * as Notifications from 'expo-notifications';
+import LoginScreen from '../components/LoginScreen';
+import ChildRegistration from '../components/ChildRegistration';
+import ParentRegistration from '../components/ParentRegistration';
+import ParentDashboard from '../components/ParentDashboard';
+import PendingApproval from '../components/PendingApproval';
+
+// Configure notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -22,6 +38,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      
+      // Register background tasks when the app starts
+      const setupTasks = async () => {
+        await registerBackgroundTasks();
+      };
+      
+      setupTasks();
     }
   }, [loaded]);
 
@@ -43,8 +66,26 @@ export default function RootLayout() {
 }
 
 function RootContent() {
-  const context = useAppContext();
-  const { isFirstLaunch, loading } = context || {};
+  const {
+    isFirstLaunch,
+    loading,
+    userType,
+    userAccount,
+    showAccessApproval,
+    clearUserAccount,
+    USER_TYPE,
+    completeOnboarding
+  } = useAppContext();
+  
+  const [showChildRegistration, setShowChildRegistration] = useState(false);
+  const [showParentRegistration, setShowParentRegistration] = useState(false);
+
+  // Auto-complete onboarding if it's the first launch
+  useEffect(() => {
+    if (isFirstLaunch && completeOnboarding) {
+      completeOnboarding();
+    }
+  }, [isFirstLaunch, completeOnboarding]);
 
   if (loading) {
     return (
@@ -54,11 +95,49 @@ function RootContent() {
       </View>
     );
   }
-
-  if (isFirstLaunch) {
-    return <OnboardingFlow />;
+  
+  // Show child registration
+  if (showChildRegistration) {
+    return (
+      <ChildRegistration 
+        onBack={() => setShowChildRegistration(false)} 
+        onComplete={() => setShowChildRegistration(false)}
+      />
+    );
   }
-
+  
+  // Show parent registration
+  if (showParentRegistration) {
+    return (
+      <ParentRegistration 
+        onBack={() => setShowParentRegistration(false)} 
+        onComplete={() => setShowParentRegistration(false)} 
+      />
+    );
+  }
+  
+  // Always show the login screen first for prototype
+  // Skip checking userType === USER_TYPE.NONE condition
+  if (!showChildRegistration && !showParentRegistration && !showAccessApproval && userType !== USER_TYPE.PARENT && !(userType === USER_TYPE.CHILD && !showAccessApproval)) {
+    return (
+      <LoginScreen 
+        onChildLogin={() => setShowChildRegistration(true)}
+        onParentLogin={() => setShowParentRegistration(true)}
+      />
+    );
+  }
+  
+  // Child is waiting for parent approval
+  if (userType === USER_TYPE.CHILD && showAccessApproval) {
+    return <PendingApproval onLogout={clearUserAccount} />;
+  }
+  
+  // User is a parent, show parent dashboard
+  if (userType === USER_TYPE.PARENT) {
+    return <ParentDashboard />;
+  }
+  
+  // User is a child with approved account, show normal app
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
@@ -67,6 +146,7 @@ function RootContent() {
   );
 }
 
+// We no longer need this as we're auto-completing onboarding
 function OnboardingFlow() {
   const context = useAppContext();
   const { completeOnboarding } = context || {};

@@ -57,6 +57,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'Explore',
+          tabBarIcon: ({ color }) => (
+            <HapticTab>
+              <MaterialIcons name="explore" size={24} color={color} />
+            </HapticTab>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="achievements"
         options={{
           title: 'Badges',
