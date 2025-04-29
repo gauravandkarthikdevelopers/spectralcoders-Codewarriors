@@ -6,12 +6,15 @@ import { StatusBar } from 'expo-status-bar';
 import { Link } from 'expo-router';
 import { useAppContext } from '../../context/AppContext';
 import PasswordLesson from '../../components/lessons/PasswordLesson';
+import PhishingLesson from '../../components/lessons/PhishingLesson';
+import MalwareLesson from '../../components/lessons/MalwareLesson';
+import SecureBrowsingLesson from '../../components/lessons/SecureBrowsingLesson';
 
 export default function LearnScreen() {
   const { progressData } = useAppContext();
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
 
-  const moduleOrder = ['password', 'phishing', 'websites', 'cyberbullying', 'personaldata'];
+  const moduleOrder = ['password', 'phishing', 'websites', 'malware', 'cyberbullying', 'personaldata', 'wifi', 'encryption', 'socialmedia'];
   
   // Map moduleId to display data
   const moduleDisplayData = {
@@ -30,6 +33,11 @@ export default function LearnScreen() {
       icon: 'public',
       description: 'Learn to identify suspicious and fake websites',
     },
+    malware: {
+      title: 'Malware Protection',
+      icon: 'bug-report',
+      description: 'Defend against viruses, trojans, and other malicious software',
+    },
     cyberbullying: {
       title: 'Cyberbullying Prevention',
       icon: 'shield',
@@ -39,6 +47,21 @@ export default function LearnScreen() {
       title: 'Protecting Personal Data',
       icon: 'security',
       description: 'Keep your personal information safe online',
+    },
+    wifi: {
+      title: 'Public Wi-Fi Security',
+      icon: 'wifi',
+      description: 'Stay safe when using public networks',
+    },
+    encryption: {
+      title: 'Data Encryption',
+      icon: 'enhanced-encryption',
+      description: 'Understand how encryption protects your information',
+    },
+    socialmedia: {
+      title: 'Social Media Safety',
+      icon: 'people',
+      description: 'Manage your privacy and security on social platforms',
     },
   };
 
@@ -56,6 +79,12 @@ export default function LearnScreen() {
   if (activeLesson) {
     if (activeLesson === 'password') {
       return <PasswordLesson onComplete={handleLessonComplete} onBack={() => setActiveLesson(null)} />;
+    } else if (activeLesson === 'phishing') {
+      return <PhishingLesson onComplete={handleLessonComplete} onBack={() => setActiveLesson(null)} />;
+    } else if (activeLesson === 'websites') {
+      return <SecureBrowsingLesson onComplete={handleLessonComplete} onBack={() => setActiveLesson(null)} />;
+    } else if (activeLesson === 'malware') {
+      return <MalwareLesson onComplete={handleLessonComplete} onBack={() => setActiveLesson(null)} />;
     }
     // Future lessons would be handled here
     return null;
@@ -71,6 +100,8 @@ export default function LearnScreen() {
 
         {moduleOrder.map((moduleId) => {
           const module = progressData.modules[moduleId];
+          if (!module) return null; // Skip if module is not defined
+          
           const displayData = moduleDisplayData[moduleId as keyof typeof moduleDisplayData];
           
           return (
@@ -249,9 +280,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   comingSoonText: {
-    fontSize: 14,
     color: '#fff',
-    opacity: 0.8,
     textAlign: 'center',
+    opacity: 0.8,
   },
 }); 

@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  saveUserData as storeSaveUserData, 
+  saveProgressData as storeSaveProgressData,
+  getUserData,
+  getProgressData
+} from '../utils/storage';
 
 // Sample badges data
 const initialBadges = [
@@ -50,7 +56,7 @@ const initialBadges = [
   },
   {
     id: '6',
-    name: 'Security Specialist',
+    name: 'Data Protector',
     description: 'Completed the Protecting Personal Data module',
     icon: 'security',
     earned: false,
@@ -92,6 +98,69 @@ const initialBadges = [
     earned: false,
     color: '#FFD700',
     unlockCondition: 'Reach Level 5',
+  },
+  {
+    id: '11',
+    name: 'Malware Hunter',
+    description: 'Completed the Malware Protection module',
+    icon: 'bug-report',
+    earned: false,
+    color: '#7F00FF',
+    unlockCondition: 'Complete the Malware Protection module',
+  },
+  {
+    id: '12',
+    name: 'Network Defender',
+    description: 'Completed the Public Wi-Fi Security module',
+    icon: 'wifi',
+    earned: false,
+    color: '#7F00FF',
+    unlockCondition: 'Complete the Public Wi-Fi Security module',
+  },
+  {
+    id: '13',
+    name: 'Crypto Master',
+    description: 'Completed the Data Encryption module',
+    icon: 'enhanced-encryption',
+    earned: false,
+    color: '#7F00FF',
+    unlockCondition: 'Complete the Data Encryption module',
+  },
+  {
+    id: '14',
+    name: 'Social Shield',
+    description: 'Completed the Social Media Safety module',
+    icon: 'people',
+    earned: false,
+    color: '#7F00FF',
+    unlockCondition: 'Complete the Social Media Safety module',
+  },
+  {
+    id: '15',
+    name: 'Cyber Master',
+    description: 'Reached Level 10',
+    icon: 'workspace-premium',
+    earned: false,
+    color: '#FFD700',
+    unlockCondition: 'Reach Level 10',
+  },
+  {
+    id: '16',
+    name: '14-Day Streak',
+    description: 'Completed challenges for 14 days in a row',
+    icon: 'whatshot',
+    earned: false,
+    color: '#FF8C00',
+    unlockCondition: 'Complete challenges for 14 days in a row',
+  },
+  {
+    id: '17',
+    name: 'Security Champion',
+    description: 'Completed all security modules',
+    icon: 'verified',
+    earned: false,
+    color: '#FFD700',
+    unlockCondition: 'Complete all security modules',
   },
 ];
 
@@ -176,6 +245,73 @@ const challengeLevels = [
   }
 ];
 
+// Define initial module states
+const initialModules = {
+  password: {
+    id: 'password',
+    unlocked: true,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  phishing: {
+    id: 'phishing',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  websites: {
+    id: 'websites',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  malware: {
+    id: 'malware',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 6
+  },
+  cyberbullying: {
+    id: 'cyberbullying',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  personaldata: {
+    id: 'personaldata',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  wifi: {
+    id: 'wifi',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  encryption: {
+    id: 'encryption',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  },
+  socialmedia: {
+    id: 'socialmedia',
+    unlocked: false,
+    progress: 0,
+    completed: 0,
+    totalLessons: 5
+  }
+};
+
 const AppContext = createContext();
 
 export const useAppContext = () => useContext(AppContext);
@@ -195,7 +331,8 @@ export default function AppProvider({ children }) {
     completedLessons: [],
     completedChallenges: [],
     badges: initialBadges,
-    challenges: challengeLevels
+    challenges: challengeLevels,
+    modules: initialModules
   });
 
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
@@ -208,33 +345,38 @@ export default function AppProvider({ children }) {
         setLoading(true);
         
         // Check if app has been launched before
-        const hasLaunchedBefore = await AsyncStorage.getItem('hasLaunchedBefore');
-        setIsFirstLaunch(hasLaunchedBefore !== 'true');
-        
-        const storedUserData = await AsyncStorage.getItem('userData');
-        const storedProgressData = await AsyncStorage.getItem('progressData');
-        
-        if (storedUserData) {
-          // Override with initial values for reset
-          const parsedData = JSON.parse(storedUserData);
-          setUserData({
-            ...parsedData,
-            level: 0,
-            xp: 0,
-            currentChallenge: 0
-          });
+        const firstLaunch = await AsyncStorage.getItem('firstLaunch');
+        if (firstLaunch === null) {
+          setIsFirstLaunch(true);
+          await AsyncStorage.setItem('firstLaunch', 'false');
+        } else {
+          setIsFirstLaunch(false);
         }
         
-        if (storedProgressData) {
-          // Reset progress data but keep user's name and profile
-          const parsedProgress = JSON.parse(storedProgressData);
-          setProgressData({
-            completedLessons: [],
-            completedChallenges: [],
-            badges: initialBadges,
-            challenges: challengeLevels
-          });
+        // Load user data using the imported utility
+        const parsedUserData = await getUserData();
+        if (parsedUserData) {
+          setUserData(parsedUserData);
+          
+          // Update login streak
+          const today = new Date().toDateString();
+          if (parsedUserData.lastActive && parsedUserData.lastActive !== today) {
+            updateLoginStreak();
+          }
         }
+        
+        // Load progress data using the imported utility
+        const parsedProgressData = await getProgressData();
+        if (parsedProgressData) {
+          setProgressData(parsedProgressData);
+        }
+        
+        // Check if we need to generate a daily challenge
+        if (!parsedUserData.currentChallenge) {
+          // No current challenge, generate one
+          setTimeout(() => generateNewDailyChallenge(), 1000);
+        }
+        
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -245,16 +387,27 @@ export default function AppProvider({ children }) {
     loadUserData();
   }, []);
 
+  // Define the save functions at component level so they can be used across the component
+  const saveUserData = async (data) => {
+    try {
+      const dataToSave = data || userData;
+      await storeSaveUserData(dataToSave);
+    } catch (error) {
+      console.error('Error saving user data:', error);
+    }
+  };
+  
+  const saveProgressData = async (data) => {
+    try {
+      const dataToSave = data || progressData;
+      await storeSaveProgressData(dataToSave);
+    } catch (error) {
+      console.error('Error saving progress data:', error);
+    }
+  };
+  
   // Save user data to storage whenever it changes
   useEffect(() => {
-    const saveUserData = async () => {
-      try {
-        await AsyncStorage.setItem('userData', JSON.stringify(userData));
-      } catch (error) {
-        console.error('Error saving user data:', error);
-      }
-    };
-    
     if (userData.name) {
       saveUserData();
     }
@@ -262,72 +415,56 @@ export default function AppProvider({ children }) {
 
   // Save progress data to storage whenever it changes
   useEffect(() => {
-    const saveProgressData = async () => {
-      try {
-        await AsyncStorage.setItem('progressData', JSON.stringify(progressData));
-      } catch (error) {
-        console.error('Error saving progress data:', error);
-      }
-    };
-    
     saveProgressData();
   }, [progressData]);
 
   const completeOnboarding = async () => {
     try {
+      // Set flag that app has been launched before
       await AsyncStorage.setItem('hasLaunchedBefore', 'true');
       setIsFirstLaunch(false);
       
-      // Redirect to first challenge (level 0)
-      setUserData(prevData => ({
-        ...prevData,
-        currentChallenge: 0
+      // Update first login badge
+      const updatedBadges = [...progressData.badges];
+      const firstLoginBadge = updatedBadges.find(badge => badge.id === '1');
+      if (firstLoginBadge) {
+        firstLoginBadge.earned = true;
+      }
+      
+      setProgressData(prev => ({
+        ...prev,
+        badges: updatedBadges
       }));
     } catch (error) {
       console.error('Error completing onboarding:', error);
     }
   };
 
-  // Handle saving profile with multiple call patterns
   const saveProfile = async (nameOrProfile, birthday) => {
     try {
-      let profileData;
+      let profileData = {};
       
-      // Handle both calling patterns
+      // Handle the case where we pass an object or just a name
       if (typeof nameOrProfile === 'object') {
-        // Called with profile object: saveProfile({ name, birthday })
         profileData = nameOrProfile;
       } else {
-        // Called with separate parameters: saveProfile(name, birthday)
-        profileData = {
-          name: nameOrProfile,
-          birthday
-        };
+        profileData = { name: nameOrProfile, birthday };
       }
       
-      setUserData(prevData => ({
-        ...prevData,
+      // Update user data with profile info
+      setUserData(prev => ({
+        ...prev,
         ...profileData,
-        level: 0,
-        xp: 0,
-        currentChallenge: 0
-      }));
-
-      await AsyncStorage.setItem('userData', JSON.stringify({
-        ...userData,
-        ...profileData,
-        level: 0,
-        xp: 0,
-        currentChallenge: 0
+        lastActive: new Date().toISOString()
       }));
       
-      // Ensure only first login badge is earned
-      setProgressData(prevData => ({
-        ...prevData,
-        completedLessons: [],
-        completedChallenges: [],
-        badges: initialBadges // This already has first login as earned
-      }));
+      // If this is first launch, complete onboarding
+      if (isFirstLaunch) {
+        await completeOnboarding();
+      }
+      
+      // Update login streak
+      updateLoginStreak();
       
       return true;
     } catch (error) {
@@ -335,19 +472,75 @@ export default function AppProvider({ children }) {
       return false;
     }
   };
+  
+  const updateLoginStreak = () => {
+    try {
+      const today = new Date();
+      const lastActive = userData.lastActive ? new Date(userData.lastActive) : null;
+      
+      let newStreak = userData.streak || 0;
+      
+      if (lastActive) {
+        const diffTime = Math.abs(today - lastActive);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          // Consecutive day login
+          newStreak += 1;
+          
+          // Update streak badges
+          if (newStreak >= 3 || newStreak >= 7) {
+            const updatedBadges = [...progressData.badges];
+            
+            if (newStreak >= 3) {
+              const threeDayBadge = updatedBadges.find(badge => badge.id === '7');
+              if (threeDayBadge && !threeDayBadge.earned) {
+                threeDayBadge.earned = true;
+              }
+            }
+            
+            if (newStreak >= 7) {
+              const sevenDayBadge = updatedBadges.find(badge => badge.id === '8');
+              if (sevenDayBadge && !sevenDayBadge.earned) {
+                sevenDayBadge.earned = true;
+              }
+            }
+            
+            setProgressData(prev => ({
+              ...prev,
+              badges: updatedBadges
+            }));
+          }
+        } else if (diffDays > 1) {
+          // Streak broken
+          newStreak = 1;
+        }
+      } else {
+        // First login
+        newStreak = 1;
+      }
+      
+      setUserData(prev => ({
+        ...prev,
+        streak: newStreak,
+        lastActive: today.toISOString()
+      }));
+    } catch (error) {
+      console.error('Error updating login streak:', error);
+    }
+  };
 
   const resetProgress = async () => {
     try {
-      await AsyncStorage.removeItem('userData');
-      await AsyncStorage.removeItem('progressData');
+      // Keep user name but reset progress
+      const name = userData.name;
       
       setUserData({
-        name: userData.name || '',
-        avatar: userData.avatar || '',
+        name,
         level: 0,
         xp: 0,
         streak: 0,
-        lastActive: null,
+        lastActive: new Date().toISOString(),
         currentChallenge: 0
       });
       
@@ -355,168 +548,357 @@ export default function AppProvider({ children }) {
         completedLessons: [],
         completedChallenges: [],
         badges: initialBadges,
-        challenges: challengeLevels
+        challenges: challengeLevels,
+        modules: initialModules
       });
+      
+      return true;
     } catch (error) {
       console.error('Error resetting progress:', error);
+      return false;
     }
   };
 
   const completeChallenge = (challengeId, xpEarned) => {
-    // Update completed challenges
-    setProgressData(prevData => {
-      const updatedChallenges = prevData.challenges.map(challenge => 
-        challenge.id === challengeId ? { ...challenge, completed: true } : challenge
-      );
+    try {
+      // Make a copy of current data
+      const updatedProgressData = { ...progressData };
       
-      const updatedCompletedChallenges = [...prevData.completedChallenges];
-      if (!updatedCompletedChallenges.includes(challengeId)) {
-        updatedCompletedChallenges.push(challengeId);
-      }
-      
-      return {
-        ...prevData,
-        completedChallenges: updatedCompletedChallenges,
-        challenges: updatedChallenges
-      };
-    });
-    
-    // Update XP and level
-    updateXPAndLevel(xpEarned);
-    
-    // Move to next challenge
-    setUserData(prevData => {
-      const nextChallengeId = parseInt(challengeId) + 1;
-      return {
-        ...prevData,
-        currentChallenge: nextChallengeId > 10 ? 10 : nextChallengeId
-      };
-    });
-  };
-
-  const completeLessonAndUpdateXP = (lessonId, xpEarned) => {
-    // Update completed lessons
-    setProgressData(prevData => {
-      const updatedCompletedLessons = [...prevData.completedLessons];
-      if (!updatedCompletedLessons.includes(lessonId)) {
-        updatedCompletedLessons.push(lessonId);
-      }
-      
-      // Check for badges to unlock based on completed lessons
-      const updatedBadges = prevData.badges.map(badge => {
-        if (!badge.earned) {
-          // Logic to determine if this badge should be earned
-          if ((badge.id === '2' && lessonId === 'passwordSafety') ||
-              (badge.id === '3' && lessonId === 'phishingIdentification') ||
-              (badge.id === '4' && lessonId === 'spotFakeWebsites') ||
-              (badge.id === '5' && lessonId === 'cyberbullyingPrevention') ||
-              (badge.id === '6' && lessonId === 'protectingPersonalData')) {
-            return { ...badge, earned: true };
-          }
-        }
-        return badge;
-      });
-      
-      return {
-        ...prevData,
-        completedLessons: updatedCompletedLessons,
-        badges: updatedBadges
-      };
-    });
-    
-    // Update XP and level
-    updateXPAndLevel(xpEarned);
-  };
-  
-  const updateXPAndLevel = (xpEarned) => {
-    setUserData(prevData => {
-      const newXP = prevData.xp + xpEarned;
-      
-      // Simple level calculation (100 XP per level)
-      const newLevel = Math.floor(newXP / 100);
-      
-      // Check if user reached level 5 to unlock the Cyber Warrior badge
-      if (newLevel >= 5) {
-        setProgressData(prevProgress => ({
-          ...prevProgress,
-          badges: prevProgress.badges.map(badge => 
-            badge.id === '10' ? { ...badge, earned: true } : badge
-          )
-        }));
+      // Add the challenge to completed challenges if not already there
+      if (!updatedProgressData.completedChallenges.includes(challengeId)) {
+        updatedProgressData.completedChallenges.push(challengeId);
       }
       
       // Update streak
-      const today = new Date().toDateString();
-      const wasActiveToday = prevData.lastActive === today;
-      const wasActiveYesterday = prevData.lastActive === 
-        new Date(Date.now() - 86400000).toDateString();
+      updateLoginStreak();
       
-      let newStreak = prevData.streak;
-      if (!wasActiveToday) {
-        if (wasActiveYesterday) {
-          newStreak += 1;
-          
-          // Check if user has reached streak goals
-          if (newStreak >= 3) {
-            setProgressData(prevProgress => ({
-              ...prevProgress,
-              badges: prevProgress.badges.map(badge => 
-                badge.id === '7' ? { ...badge, earned: true } : badge
-              )
-            }));
+      // Save progress data
+      setProgressData(updatedProgressData);
+      saveProgressData(updatedProgressData);
+      
+      // Update XP
+      updateXPAndLevel(xpEarned);
+      
+      // Generate a new daily challenge for tomorrow
+      generateNewDailyChallenge();
+      
+      return true;
+    } catch (error) {
+      console.error('Error completing challenge:', error);
+      return false;
+    }
+  };
+
+  // Generate a new daily challenge
+  const generateNewDailyChallenge = () => {
+    try {
+      // Get available modules (unlocked)
+      const unlockedModules = Object.keys(progressData.modules)
+        .filter(moduleId => progressData.modules[moduleId].unlocked);
+      
+      // If no modules unlocked yet, return
+      if (unlockedModules.length === 0) return;
+      
+      // Get all daily challenges
+      const dailyChallenges = [
+        // Password challenges
+        { id: 'pwd1', type: 'password' },
+        { id: 'pwd2', type: 'password' },
+        { id: 'pwd3', type: 'password' },
+        
+        // Phishing challenges
+        { id: 'phish1', type: 'phishing' },
+        { id: 'phish2', type: 'phishing' },
+        { id: 'phish3', type: 'phishing' },
+        
+        // Website security challenges
+        { id: 'web1', type: 'website' },
+        { id: 'web2', type: 'website' },
+        { id: 'web3', type: 'website' },
+        
+        // Malware challenges
+        { id: 'mal1', type: 'malware' },
+        { id: 'mal2', type: 'malware' },
+        { id: 'mal3', type: 'malware' },
+      ];
+      
+      // Filter challenges based on unlocked modules
+      const availableChallenges = dailyChallenges.filter(challenge => {
+        if (challenge.type === 'password') return unlockedModules.includes('password');
+        if (challenge.type === 'phishing') return unlockedModules.includes('phishing');
+        if (challenge.type === 'website') return unlockedModules.includes('websites');
+        if (challenge.type === 'malware') return unlockedModules.includes('malware');
+        return false;
+      });
+      
+      // Exclude challenges already completed today
+      const eligibleChallenges = availableChallenges.filter(
+        challenge => !progressData.completedChallenges.includes(challenge.id)
+      );
+      
+      // If all challenges completed, choose from all available
+      const challengePool = eligibleChallenges.length > 0 
+        ? eligibleChallenges 
+        : availableChallenges;
+      
+      // Pick a random challenge
+      const randomIndex = Math.floor(Math.random() * challengePool.length);
+      const selectedChallenge = challengePool[randomIndex];
+      
+      // Update user data with new challenge
+      const updatedUserData = {
+        ...userData,
+        currentChallenge: selectedChallenge.id
+      };
+      
+      setUserData(updatedUserData);
+      saveUserData(updatedUserData);
+      
+      return selectedChallenge.id;
+    } catch (error) {
+      console.error('Error generating daily challenge:', error);
+      return null;
+    }
+  };
+
+  const completeLessonAndUpdateXP = (moduleId, lessonIndex = 0, xpEarned = 20) => {
+    try {
+      // Make a copy of the current progress data
+      const updatedProgressData = { ...progressData };
+      const updatedModules = { ...updatedProgressData.modules };
+      
+      // Check if the module exists
+      if (!updatedModules[moduleId]) {
+        console.error('Module not found:', moduleId);
+        return false;
+      }
+      
+      // Get the current module data
+      const module = { ...updatedModules[moduleId] };
+      
+      // Update module progress
+      const completionPercentage = ((lessonIndex + 1) / module.totalLessons) * 100;
+      module.progress = Math.min(100, Math.max(module.progress, completionPercentage));
+      
+      // Update completed lessons count
+      module.completed = Math.max(module.completed, lessonIndex + 1);
+      
+      // Update the modules object with the updated module
+      updatedModules[moduleId] = module;
+      
+      // Mark relevant lessons as completed if not already marked
+      const lessonKey = `${moduleId}_${lessonIndex}`;
+      if (!updatedProgressData.completedLessons.includes(lessonKey)) {
+        updatedProgressData.completedLessons.push(lessonKey);
+      }
+      
+      // Update the badges based on module completion
+      let updatedBadges = [...updatedProgressData.badges];
+      
+      if (module.progress >= 100) {
+        // Module completed, update relevant badge
+        switch (moduleId) {
+          case 'password':
+            // Find the Password Master badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '2' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'phishing':
+            // Find the Phishing Expert badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '3' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'websites':
+            // Find the Web Detective badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '4' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'malware':
+            // Find the Security Specialist badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '11' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'cyberbullying':
+            // Find the Digital Guardian badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '5' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'personaldata':
+            // Find the Security Specialist badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '6' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'wifi':
+            // Find the Network Defender badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '12' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'encryption':
+            // Find the Crypto Master badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '13' ? { ...badge, earned: true } : badge
+            );
+            break;
+          case 'socialmedia':
+            // Find the Social Shield badge and mark it as earned
+            updatedBadges = updatedBadges.map(badge => 
+              badge.id === '14' ? { ...badge, earned: true } : badge
+            );
+            break;
+        }
+        
+        // Unlock the next module in sequence if available
+        const moduleOrder = ['password', 'phishing', 'websites', 'malware', 'cyberbullying', 'personaldata', 'wifi', 'encryption', 'socialmedia'];
+        const currentIndex = moduleOrder.indexOf(moduleId);
+        
+        if (currentIndex !== -1 && currentIndex < moduleOrder.length - 1) {
+          const nextModuleId = moduleOrder[currentIndex + 1];
+          if (updatedModules[nextModuleId]) {
+            updatedModules[nextModuleId] = {
+              ...updatedModules[nextModuleId],
+              unlocked: true
+            };
           }
-          
-          if (newStreak >= 7) {
-            setProgressData(prevProgress => ({
-              ...prevProgress,
-              badges: prevProgress.badges.map(badge => 
-                badge.id === '8' ? { ...badge, earned: true } : badge
-              )
-            }));
-          }
-        } else {
-          newStreak = 1;
         }
       }
       
-      // Check if user earned 100 XP in a day
-      if (xpEarned >= 100) {
-        setProgressData(prevProgress => ({
-          ...prevProgress,
-          badges: prevProgress.badges.map(badge => 
-            badge.id === '9' ? { ...badge, earned: true } : badge
-          )
-        }));
-      }
+      // Save the updated progress data
+      setProgressData({
+        ...updatedProgressData,
+        modules: updatedModules,
+        badges: updatedBadges
+      });
       
-      return {
-        ...prevData,
-        xp: newXP,
-        level: newLevel,
-        streak: newStreak,
-        lastActive: today
-      };
-    });
+      // Save to storage
+      saveProgressData({
+        ...updatedProgressData,
+        modules: updatedModules,
+        badges: updatedBadges
+      });
+      
+      // Update XP
+      updateXPAndLevel(xpEarned);
+      
+      return true;
+    } catch (error) {
+      console.error('Error completing lesson:', error);
+      return false;
+    }
   };
 
-  // Skip onboarding for returning users
+  const updateXPAndLevel = (xpEarned) => {
+    try {
+      // Current user data
+      const currentXP = userData.xp || 0;
+      const currentLevel = userData.level || 0;
+      
+      // XP threshold for each level (increases with level)
+      const calculateXPForNextLevel = (level) => {
+        return 100 + (level * 50);
+      };
+      
+      // Calculate new total XP
+      const newTotalXP = currentXP + xpEarned;
+      
+      // Calculate the new level based on XP
+      let newLevel = currentLevel;
+      let remainingXP = newTotalXP;
+      let levelUpOccurred = false;
+      
+      // Check if we've gained enough XP for a level up
+      while (remainingXP >= calculateXPForNextLevel(newLevel)) {
+        remainingXP -= calculateXPForNextLevel(newLevel);
+        newLevel++;
+        levelUpOccurred = true;
+      }
+      
+      // Update badges based on XP milestones and level
+      let updatedBadges = [...progressData.badges];
+      
+      // Quick Learner badge (100 XP in a day)
+      if (xpEarned >= 100) {
+        updatedBadges = updatedBadges.map(badge => 
+          badge.id === '9' ? { ...badge, earned: true } : badge
+        );
+      }
+      
+      // Cyber Warrior badge (Reached Level 5)
+      if (newLevel >= 5) {
+        updatedBadges = updatedBadges.map(badge => 
+          badge.id === '10' ? { ...badge, earned: true } : badge
+        );
+      }
+      
+      // Cyber Master badge (Reached Level 10)
+      if (newLevel >= 10) {
+        updatedBadges = updatedBadges.map(badge => 
+          badge.id === '15' ? { ...badge, earned: true } : badge
+        );
+      }
+      
+      // Update user data
+      const updatedUserData = {
+        ...userData,
+        xp: remainingXP,
+        level: newLevel
+      };
+      
+      // Save updated user data
+      setUserData(updatedUserData);
+      saveUserData(updatedUserData);
+      
+      // Update badges in progress data
+      setProgressData({
+        ...progressData,
+        badges: updatedBadges
+      });
+      
+      // Save updated badges to storage
+      saveProgressData({
+        ...progressData,
+        badges: updatedBadges
+      });
+      
+      return {
+        newLevel,
+        levelUp: levelUpOccurred,
+        xpGained: xpEarned,
+        remainingXP,
+        nextLevelXP: calculateXPForNextLevel(newLevel)
+      };
+    } catch (error) {
+      console.error('Error updating XP:', error);
+      return null;
+    }
+  };
+  
   const skipOnboarding = () => {
     setIsFirstLaunch(false);
   };
 
   return (
-    <AppContext.Provider value={{ 
-      userData, 
-      progressData, 
-      saveProfile, 
-      resetProgress, 
-      completeLessonAndUpdateXP,
-      completeChallenge,
-      isFirstLaunch,
-      loading,
-      completeOnboarding,
-      skipOnboarding
-    }}>
+    <AppContext.Provider
+      value={{
+        userData,
+        progressData,
+        isFirstLaunch,
+        loading,
+        saveProfile,
+        completeOnboarding,
+        skipOnboarding,
+        resetProgress,
+        completeChallenge,
+        completeLessonAndUpdateXP,
+        updateXPAndLevel
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

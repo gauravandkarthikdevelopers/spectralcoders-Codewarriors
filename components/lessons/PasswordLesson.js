@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, ScrollView, Pressable, TextInput, ActivityIndic
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppContext } from '../../context/AppContext';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PasswordLesson = ({ onComplete, onBack }) => {
   const { completeLessonAndUpdateXP } = useAppContext();
@@ -110,7 +111,8 @@ const PasswordLesson = ({ onComplete, onBack }) => {
       // Last step - complete lesson
       setLoading(true);
       try {
-        const success = await completeLessonAndUpdateXP('password');
+        // Mark the 'password' module lesson as complete with 25 XP reward
+        const success = await completeLessonAndUpdateXP('password', step, 25);
         if (success) {
           onComplete?.();
         }
@@ -123,6 +125,17 @@ const PasswordLesson = ({ onComplete, onBack }) => {
       // Move to next step
       setStep(step + 1);
       setShowFeedback(false);
+      setSubmitted(false);
+      
+      // Mark each step as a lesson completion for progressive XP
+      if (step >= 0 && step < lessons.length - 1) {
+        try {
+          // 15 XP per intermediate step (smaller reward than final completion)
+          await completeLessonAndUpdateXP('password', step, 15);
+        } catch (error) {
+          console.error('Error marking step completion:', error);
+        }
+      }
     }
   };
   
@@ -130,6 +143,7 @@ const PasswordLesson = ({ onComplete, onBack }) => {
     if (step > 0) {
       setStep(step - 1);
       setShowFeedback(false);
+      setSubmitted(false);
     } else {
       onBack?.();
     }
@@ -155,7 +169,7 @@ const PasswordLesson = ({ onComplete, onBack }) => {
   const currentLesson = lessons[step];
   
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="light" />
       
       <View style={styles.header}>
@@ -250,40 +264,37 @@ const PasswordLesson = ({ onComplete, onBack }) => {
                   <Text style={[
                     styles.quizOptionText,
                     quizAnswer === option.id && styles.selectedOptionText,
+                    submitted && option.id === currentLesson.quiz.correctAnswer && styles.correctOptionText,
                   ]}>
                     {option.text}
                   </Text>
-                  
-                  {submitted && option.id === currentLesson.quiz.correctAnswer && (
-                    <MaterialIcons name="check-circle" size={24} color="#3FFFA8" />
-                  )}
-                  
-                  {submitted && quizAnswer === option.id && quizAnswer !== currentLesson.quiz.correctAnswer && (
-                    <MaterialIcons name="cancel" size={24} color="#FF5252" />
-                  )}
                 </Pressable>
               ))}
               
-              {showFeedback && (
-                <View style={styles.feedbackContainer}>
-                  <Text style={styles.feedbackTitle}>
-                    {quizAnswer === currentLesson.quiz.correctAnswer ? 
-                      'Correct!' : 'Not quite right'}
-                  </Text>
-                  <Text style={styles.feedbackText}>
-                    {currentLesson.quiz.explanation}
-                  </Text>
-                </View>
-              )}
-              
-              {!submitted && (
+              {!submitted ? (
                 <Pressable 
                   style={[styles.submitButton, !quizAnswer && styles.disabledButton]} 
                   onPress={handleQuizSubmit}
                   disabled={!quizAnswer}
                 >
-                  <Text style={styles.submitButtonText}>Submit Answer</Text>
+                  <Text style={styles.submitButtonText}>Check Answer</Text>
                 </Pressable>
+              ) : (
+                <View style={styles.feedbackContainer}>
+                  <MaterialIcons 
+                    name={quizAnswer === currentLesson.quiz.correctAnswer ? "check-circle" : "cancel"} 
+                    size={24} 
+                    color={quizAnswer === currentLesson.quiz.correctAnswer ? "#3FFFA8" : "#FF5252"} 
+                  />
+                  <Text style={styles.feedbackText}>
+                    {quizAnswer === currentLesson.quiz.correctAnswer ? 
+                      "Correct!" : 
+                      "Not quite right."}
+                  </Text>
+                  <Text style={styles.explanationText}>
+                    {currentLesson.quiz.explanation}
+                  </Text>
+                </View>
               )}
             </View>
           )}
@@ -291,27 +302,27 @@ const PasswordLesson = ({ onComplete, onBack }) => {
       </ScrollView>
       
       <View style={styles.footer}>
-        <Pressable 
+        <Pressable
           style={[
             styles.nextButton,
             (currentLesson.isQuiz && !submitted) && styles.disabledButton
-          ]} 
+          ]}
           onPress={handleNext}
-          disabled={(currentLesson.isQuiz && !submitted) || loading}
+          disabled={loading || (currentLesson.isQuiz && !submitted)}
         >
           {loading ? (
-            <ActivityIndicator color="#0B132B" />
+            <ActivityIndicator color="#FFF" />
           ) : (
             <>
               <Text style={styles.nextButtonText}>
-                {step === lessons.length - 1 ? 'Complete' : 'Next'}
+                {step === lessons.length - 1 ? "Complete" : "Next"}
               </Text>
-              <MaterialIcons name="arrow-forward" size={24} color="#0B132B" />
+              <MaterialIcons name="arrow-forward" size={24} color="#FFF" />
             </>
           )}
         </Pressable>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -323,26 +334,25 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFF',
+    textAlign: 'center',
   },
   progressText: {
     backgroundColor: 'rgba(63, 255, 168, 0.2)',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   progressTextContent: {
     color: '#3FFFA8',
@@ -354,21 +364,27 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   lessonContainer: {
-    marginBottom: 80,
+    alignItems: 'center',
+    paddingBottom: 80,
   },
   iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(63, 255, 168, 0.15)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   lessonTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFF',
-    textAlign: 'center',
     marginBottom: 24,
+    textAlign: 'center',
   },
   lessonContent: {
-    marginBottom: 24,
+    width: '100%',
   },
   contentText: {
     fontSize: 16,
@@ -377,10 +393,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   interactiveContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 16,
+    width: '100%',
+    marginTop: 16,
   },
   interactiveLabel: {
     fontSize: 16,
@@ -388,19 +402,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   passwordInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    padding: 16,
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     color: '#FFF',
-    fontSize: 16,
+    padding: 16,
+    borderRadius: 8,
     marginBottom: 16,
+    fontSize: 16,
   },
   strengthMeterContainer: {
-    marginBottom: 8,
+    width: '100%',
+    marginBottom: 16,
   },
   strengthMeter: {
+    width: '100%',
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
@@ -415,125 +432,124 @@ const styles = StyleSheet.create({
   },
   strengthLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255,255,255,0.6)',
   },
   strengthText: {
     fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'center',
     marginBottom: 16,
+    textAlign: 'center',
   },
   tipContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    padding: 16,
     borderRadius: 8,
-    padding: 12,
+    alignItems: 'flex-start',
   },
   tipText: {
-    flex: 1,
-    fontSize: 14,
     color: '#FFF',
     marginLeft: 12,
+    flex: 1,
+    fontSize: 14,
     lineHeight: 20,
   },
   quizContainer: {
-    marginTop: 16,
+    width: '100%',
   },
   quizQuestion: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: '#FFF',
     marginBottom: 24,
+    textAlign: 'center',
   },
   quizOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     padding: 16,
+    borderRadius: 8,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   selectedOption: {
-    borderColor: '#3FFFA8',
-    backgroundColor: 'rgba(63, 255, 168, 0.1)',
+    backgroundColor: 'rgba(127, 0, 255, 0.3)',
+    borderWidth: 1,
+    borderColor: '#7F00FF',
   },
   correctOption: {
+    backgroundColor: 'rgba(63, 255, 168, 0.3)',
+    borderWidth: 1,
     borderColor: '#3FFFA8',
-    backgroundColor: 'rgba(63, 255, 168, 0.1)',
   },
   incorrectOption: {
+    backgroundColor: 'rgba(255, 82, 82, 0.3)',
+    borderWidth: 1,
     borderColor: '#FF5252',
-    backgroundColor: 'rgba(255, 82, 82, 0.1)',
   },
   quizOptionText: {
-    fontSize: 16,
     color: '#FFF',
+    fontSize: 16,
   },
   selectedOptionText: {
     fontWeight: 'bold',
   },
-  feedbackContainer: {
-    backgroundColor: 'rgba(63, 255, 168, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3FFFA8',
-  },
-  feedbackTitle: {
-    fontSize: 18,
+  correctOptionText: {
     fontWeight: 'bold',
-    color: '#3FFFA8',
-    marginBottom: 8,
-  },
-  feedbackText: {
-    fontSize: 16,
-    color: '#FFF',
-    lineHeight: 24,
   },
   submitButton: {
-    backgroundColor: '#3FFFA8',
-    borderRadius: 25,
-    paddingVertical: 14,
+    backgroundColor: '#7F00FF',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 24,
   },
   disabledButton: {
     opacity: 0.5,
   },
   submitButtonText: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#0B132B',
+  },
+  feedbackContainer: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  feedbackText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 8,
+  },
+  explanationText: {
+    color: '#FFF',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0B132B',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    padding: 16,
+    backgroundColor: 'rgba(11, 19, 43, 0.9)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   nextButton: {
-    flexDirection: 'row',
     backgroundColor: '#3FFFA8',
-    borderRadius: 25,
-    paddingVertical: 14,
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
   nextButtonText: {
+    color: '#0B132B',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#0B132B',
     marginRight: 8,
   },
 });

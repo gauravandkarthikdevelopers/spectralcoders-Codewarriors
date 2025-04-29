@@ -3,10 +3,11 @@ import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Home() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="light" />
       
       <View style={styles.background}>
@@ -47,7 +48,7 @@ export default function Home() {
           </Link>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

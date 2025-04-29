@@ -90,7 +90,7 @@ const badges = [
 ];
 
 export default function AchievementsScreen() {
-  const { progressData } = useAppContext();
+  const { progressData, userData } = useAppContext();
   const badges = progressData?.badges || [];
   
   // Calculate stats
@@ -120,6 +120,26 @@ export default function AchievementsScreen() {
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{completionRate.toFixed(0)}%</Text>
             <Text style={styles.statLabel}>Complete</Text>
+          </View>
+        </View>
+        
+        <View style={styles.levelCard}>
+          <View style={styles.levelInfo}>
+            <Text style={styles.levelLabel}>Current Level</Text>
+            <Text style={styles.levelNumber}>{userData.level}</Text>
+          </View>
+          <View style={styles.xpContainer}>
+            <Text style={styles.xpLabel}>XP: {userData.xp}</Text>
+            <View style={styles.xpProgress}>
+              <View 
+                style={[
+                  styles.xpFill, 
+                  { 
+                    width: `${Math.min(100, (userData.xp / Math.max(100, userData.xp + 100)) * 100)}%` 
+                  }
+                ]} 
+              />
+            </View>
           </View>
         </View>
         
@@ -215,6 +235,49 @@ const styles = StyleSheet.create({
     color: '#3FFFA8',
     fontSize: 14,
   },
+  levelCard: {
+    backgroundColor: 'rgba(63, 255, 168, 0.15)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 25,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3FFFA8',
+  },
+  levelInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  levelLabel: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  levelNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#3FFFA8',
+  },
+  xpContainer: {
+    width: '100%',
+  },
+  xpLabel: {
+    fontSize: 14,
+    color: '#fff',
+    marginBottom: 5,
+  },
+  xpProgress: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  xpFill: {
+    height: '100%',
+    backgroundColor: '#3FFFA8',
+    borderRadius: 4,
+  },
   section: {
     marginBottom: 25,
   },
@@ -255,15 +318,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
     textAlign: 'center',
+    marginBottom: 5,
   },
   lockedBadgeName: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
     textAlign: 'center',
+    marginBottom: 5,
   },
   badgeDescription: {
     color: 'rgba(255, 255, 255, 0.7)',
@@ -271,22 +334,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   comingSoonCard: {
-    backgroundColor: 'rgba(63, 255, 168, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 16,
-    padding: 25,
+    padding: 24,
     alignItems: 'center',
   },
   comingSoonTitle: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
+    marginVertical: 10,
   },
   comingSoonText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
-  },
+  }
 }); 

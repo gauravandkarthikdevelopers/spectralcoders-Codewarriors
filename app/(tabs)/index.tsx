@@ -4,27 +4,72 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-
-// Sample data - in a real app, this would come from local storage or state management
-const userProgress = {
-  level: 2,
-  xp: 145,
-  xpToNextLevel: 200,
-  streak: 3,
-  completedModules: 2,
-  totalModules: 5,
-};
+import { useAppContext } from '../../context/AppContext';
 
 export default function HomeScreen() {
+  const { userData, progressData } = useAppContext();
+  
+  // Calculate XP to next level based on the level thresholds
+  const getXPToNextLevel = () => {
+    const levelThresholds = [
+      0,     // Level 0
+      100,   // Level 1
+      250,   // Level 2
+      450,   // Level 3
+      700,   // Level 4
+      1000,  // Level 5
+      1350,  // Level 6
+      1750,  // Level 7
+      2200,  // Level 8
+      2700,  // Level 9
+      3250   // Level 10
+    ];
+    
+    const currentLevel = userData.level;
+    const nextLevel = currentLevel + 1;
+    
+    if (nextLevel >= levelThresholds.length) {
+      return 0; // Max level reached
+    }
+    
+    const currentLevelXP = levelThresholds[currentLevel];
+    const nextLevelXP = levelThresholds[nextLevel];
+    const xpToNextLevel = nextLevelXP - currentLevelXP;
+    const xpProgress = userData.xp - currentLevelXP;
+    
+    return {
+      current: xpProgress,
+      total: xpToNextLevel,
+      percentage: (xpProgress / xpToNextLevel) * 100
+    };
+  };
+  
+  const xpProgress = getXPToNextLevel();
+  
+  // Get completed modules count
+  const completedModules = Object.values(progressData.modules).filter(
+    module => module.progress === 100
+  ).length;
+  
+  const totalModules = Object.values(progressData.modules).length;
+  
+  // Get rank name based on level
+  const getRankName = () => {
+    if (userData.level >= 8) return 'Cyber Commander';
+    if (userData.level >= 5) return 'Cyber Warrior';
+    if (userData.level >= 3) return 'Cyber Guardian';
+    return 'Cyber Cadet';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello, Warrior!</Text>
+          <Text style={styles.greeting}>Hello, {userData.name || 'Warrior'}!</Text>
           <View style={styles.streakContainer}>
             <MaterialIcons name="local-fire-department" size={20} color="#FF8C00" />
-            <Text style={styles.streakText}>{userProgress.streak} Day Streak</Text>
+            <Text style={styles.streakText}>{userData.streak || 0} Day Streak</Text>
           </View>
         </View>
 
@@ -32,11 +77,11 @@ export default function HomeScreen() {
         <View style={styles.card}>
           <View style={styles.levelHeader}>
             <View>
-              <Text style={styles.cardTitle}>Level {userProgress.level}</Text>
-              <Text style={styles.rankName}>Cyber Cadet</Text>
+              <Text style={styles.cardTitle}>Level {userData.level}</Text>
+              <Text style={styles.rankName}>{getRankName()}</Text>
             </View>
             <View style={styles.levelBadge}>
-              <Text style={styles.levelNumber}>{userProgress.level}</Text>
+              <Text style={styles.levelNumber}>{userData.level}</Text>
             </View>
           </View>
 
@@ -45,12 +90,12 @@ export default function HomeScreen() {
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${(userProgress.xp / userProgress.xpToNextLevel) * 100}%` }
+                  { width: `${xpProgress.percentage}%` }
                 ]} 
               />
             </View>
             <Text style={styles.progressText}>
-              {userProgress.xp}/{userProgress.xpToNextLevel} XP
+              {xpProgress.current}/{xpProgress.total} XP to Level {userData.level + 1}
             </Text>
           </View>
         </View>
@@ -74,60 +119,80 @@ export default function HomeScreen() {
         {/* Continue Learning */}
         <Text style={styles.sectionTitle}>Continue Learning</Text>
         
-        <View style={styles.learningModule}>
-          <View style={styles.moduleIconContainer}>
-            <MaterialIcons name="lock" size={28} color="#3FFFA8" />
-          </View>
-          <View style={styles.moduleContent}>
-            <Text style={styles.moduleTitle}>Password Safety</Text>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '100%' }]} />
-              </View>
-              <Text style={styles.moduleProgressText}>Completed</Text>
+        {progressData.modules.password && (
+          <View style={styles.learningModule}>
+            <View style={styles.moduleIconContainer}>
+              <MaterialIcons name="lock" size={28} color="#3FFFA8" />
             </View>
+            <View style={styles.moduleContent}>
+              <Text style={styles.moduleTitle}>Password Safety</Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${progressData.modules.password.progress}%` }]} />
+                </View>
+                <Text style={styles.moduleProgressText}>
+                  {progressData.modules.password.progress === 100 ? 'Completed' : 
+                    `${progressData.modules.password.completed}/${progressData.modules.password.totalLessons} Lessons`}
+                </Text>
+              </View>
+            </View>
+            <Link href="/(tabs)/learn" asChild>
+              <Pressable style={styles.continueButton}>
+                <MaterialIcons name="play-arrow" size={20} color="#0B132B" />
+              </Pressable>
+            </Link>
           </View>
-        </View>
+        )}
 
-        <View style={styles.learningModule}>
-          <View style={styles.moduleIconContainer}>
-            <MaterialIcons name="email" size={28} color="#3FFFA8" />
-          </View>
-          <View style={styles.moduleContent}>
-            <Text style={styles.moduleTitle}>Phishing Scam Identification</Text>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '60%' }]} />
-              </View>
-              <Text style={styles.moduleProgressText}>2/5 Lessons</Text>
+        {progressData.modules.phishing && progressData.modules.phishing.unlocked && (
+          <View style={styles.learningModule}>
+            <View style={styles.moduleIconContainer}>
+              <MaterialIcons name="email" size={28} color="#3FFFA8" />
             </View>
+            <View style={styles.moduleContent}>
+              <Text style={styles.moduleTitle}>Phishing Scam Identification</Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${progressData.modules.phishing.progress}%` }]} />
+                </View>
+                <Text style={styles.moduleProgressText}>
+                  {progressData.modules.phishing.progress === 100 ? 'Completed' : 
+                    `${progressData.modules.phishing.completed}/${progressData.modules.phishing.totalLessons} Lessons`}
+                </Text>
+              </View>
+            </View>
+            <Link href="/(tabs)/learn" asChild>
+              <Pressable style={styles.continueButton}>
+                <MaterialIcons name="play-arrow" size={20} color="#0B132B" />
+              </Pressable>
+            </Link>
           </View>
-          <Link href="/(tabs)/learn" asChild>
-            <Pressable style={styles.continueButton}>
-              <MaterialIcons name="play-arrow" size={20} color="#0B132B" />
-            </Pressable>
-          </Link>
-        </View>
+        )}
 
-        <View style={styles.learningModule}>
-          <View style={styles.moduleIconContainer}>
-            <MaterialIcons name="public" size={28} color="#3FFFA8" />
-          </View>
-          <View style={styles.moduleContent}>
-            <Text style={styles.moduleTitle}>Spotting Fake Websites</Text>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '0%' }]} />
-              </View>
-              <Text style={styles.moduleProgressText}>0/5 Lessons</Text>
+        {progressData.modules.websites && progressData.modules.websites.unlocked && (
+          <View style={styles.learningModule}>
+            <View style={styles.moduleIconContainer}>
+              <MaterialIcons name="public" size={28} color="#3FFFA8" />
             </View>
+            <View style={styles.moduleContent}>
+              <Text style={styles.moduleTitle}>Spotting Fake Websites</Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${progressData.modules.websites.progress}%` }]} />
+                </View>
+                <Text style={styles.moduleProgressText}>
+                  {progressData.modules.websites.progress === 100 ? 'Completed' : 
+                    `${progressData.modules.websites.completed}/${progressData.modules.websites.totalLessons} Lessons`}
+                </Text>
+              </View>
+            </View>
+            <Link href="/(tabs)/learn" asChild>
+              <Pressable style={styles.continueButton}>
+                <MaterialIcons name="play-arrow" size={20} color="#0B132B" />
+              </Pressable>
+            </Link>
           </View>
-          <Link href="/(tabs)/learn" asChild>
-            <Pressable style={styles.continueButton}>
-              <MaterialIcons name="play-arrow" size={20} color="#0B132B" />
-            </Pressable>
-          </Link>
-        </View>
+        )}
 
         {/* Achievement Progress */}
         <View style={styles.card}>
@@ -136,14 +201,12 @@ export default function HomeScreen() {
             <MaterialIcons name="emoji-events" size={22} color="#3FFFA8" />
           </View>
           <View style={styles.badgeContainer}>
-            <View style={styles.badge}>
-              <MaterialIcons name="verified-user" size={24} color="#FFFFFF" />
-              <Text style={styles.badgeText}>First Login</Text>
-            </View>
-            <View style={styles.badge}>
-              <MaterialIcons name="school" size={24} color="#FFFFFF" />
-              <Text style={styles.badgeText}>First Lesson</Text>
-            </View>
+            {progressData.badges.filter(badge => badge.earned).slice(0, 2).map(badge => (
+              <View key={badge.id} style={styles.badge}>
+                <MaterialIcons name={badge.icon} size={24} color="#FFFFFF" />
+                <Text style={styles.badgeText}>{badge.name}</Text>
+              </View>
+            ))}
           </View>
           <Link href="/(tabs)/achievements" asChild>
             <Pressable style={styles.secondaryButton}>
@@ -258,46 +321,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     opacity: 0.8,
-    textAlign: 'right',
   },
   button: {
     backgroundColor: '#3FFFA8',
-    borderRadius: 25,
     paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
     color: '#0B132B',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: '#3FFFA8',
-    borderRadius: 25,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  secondaryButtonText: {
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: '600',
-    color: '#3FFFA8',
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 15,
+    marginVertical: 15,
   },
   learningModule: {
-    backgroundColor: 'rgba(127, 0, 255, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   moduleIconContainer: {
     width: 50,
@@ -313,9 +361,9 @@ const styles = StyleSheet.create({
   },
   moduleTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   moduleProgressText: {
     fontSize: 12,
@@ -323,9 +371,9 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   continueButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#3FFFA8',
     justifyContent: 'center',
     alignItems: 'center',
@@ -333,20 +381,31 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     flexDirection: 'row',
-    marginVertical: 10,
+    marginBottom: 15,
   },
   badge: {
-    backgroundColor: 'rgba(63, 255, 168, 0.15)',
-    padding: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 15,
-    width: 80,
+    backgroundColor: 'rgba(63, 255, 168, 0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 10,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 12,
-    marginTop: 5,
-    textAlign: 'center',
+    marginLeft: 8,
+    fontWeight: '500',
   },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#3FFFA8',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#3FFFA8',
+    fontWeight: 'bold',
+  }
 });

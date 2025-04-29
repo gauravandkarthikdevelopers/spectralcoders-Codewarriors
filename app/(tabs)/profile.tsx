@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable, Image, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Pressable, Image, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '../../context/AppContext';
+import { format } from 'date-fns';
 
 // Sample user data - in a real app, this would be stored in local storage
 const initialUserData = {
@@ -20,17 +21,21 @@ const initialUserData = {
 };
 
 export default function ProfileScreen() {
-  const { userData, resetProgress, saveProfile } = useAppContext();
+  const { userData, progressData, resetProgress, saveProfile } = useAppContext();
   const [editMode, setEditMode] = useState(false);
-  const [name, setName] = useState(userData.name);
-  const [birthday, setBirthday] = useState(userData.birthday);
+  const [name, setName] = useState(userData.name || '');
+  const [birthday, setBirthday] = useState(
+    userData.birthday ? format(new Date(userData.birthday), 'MM/dd/yyyy') : ''
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     // Update local state when userData changes
-    setName(userData.name);
-    setBirthday(userData.birthday);
+    setName(userData.name || '');
+    setBirthday(
+      userData.birthday ? format(new Date(userData.birthday), 'MM/dd/yyyy') : ''
+    );
   }, [userData]);
   
   const handleBirthdayChange = (text) => {
@@ -74,7 +79,15 @@ export default function ProfileScreen() {
     
     setLoading(true);
     try {
-      const success = await saveProfile(name, birthday);
+      // Convert MM/DD/YYYY to a Date object
+      const [month, day, year] = birthday.split('/');
+      const birthdayDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      
+      const success = await saveProfile({ 
+        name,
+        birthday: birthdayDate 
+      });
+      
       if (success) {
         setEditMode(false);
       } else {
@@ -82,16 +95,104 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       setError('An error occurred. Please try again.');
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleResetProgress = async () => {
-    const success = await resetProgress();
-    if (success) {
-      // The resetProgress function already handles updating the app state
+    Alert.alert(
+      'Reset Progress',
+      'Are you sure you want to reset all your progress? This cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const success = await resetProgress();
+              if (!success) {
+                Alert.alert('Error', 'Failed to reset progress. Please try again.');
+              }
+            } catch (error) {
+              console.error('Reset progress error:', error);
+              Alert.alert('Error', 'An error occurred while resetting progress.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Calculate XP to next level based on the level thresholds
+  const getXPToNextLevel = () => {
+    const levelThresholds = [
+      0,     // Level 0
+      100,   // Level 1
+      250,   // Level 2
+      450,   // Level 3
+      700,   // Level 4
+      1000,  // Level 5
+      1350,  // Level 6
+      1750,  // Level 7
+      2200,  // Level 8
+      2700,  // Level 9
+      3250   // Level 10
+    ];
+    
+    const currentLevel = userData.level;
+    const nextLevel = currentLevel + 1;
+    
+    if (nextLevel >= levelThresholds.length) {
+      return {
+        current: 0,
+        total: 0,
+        percentage: 100
+      };
     }
+    
+    const currentLevelXP = levelThresholds[currentLevel];
+    const nextLevelXP = levelThresholds[nextLevel];
+    const xpToNextLevel = nextLevelXP - currentLevelXP;
+    const xpProgress = userData.xp - currentLevelXP;
+    
+    return {
+      current: xpProgress,
+      total: xpToNextLevel,
+      percentage: (xpProgress / xpToNextLevel) * 100
+    };
+  };
+  
+  const xpProgress = getXPToNextLevel();
+  
+  // Get rank name based on level
+  const getRankName = () => {
+    if (userData.level >= 8) return 'Cyber Commander';
+    if (userData.level >= 5) return 'Cyber Warrior';
+    if (userData.level >= 3) return 'Cyber Guardian';
+    return 'Cyber Cadet';
+  };
+  
+  // Count total completed lessons
+  const totalLessonsCompleted = progressData.completedLessons?.length || 0;
+  
+  // Count earned badges
+  const earnedBadgesCount = progressData.badges?.filter(badge => badge.earned)?.length || 0;
+  
+  // Format join date
+  const formatJoinDate = () => {
+    if (!userData.lastActive) return 'Recently';
+    
+    const date = new Date(userData.lastActive);
+    return format(date, 'MMMM yyyy');
   };
 
   return (
@@ -166,20 +267,20 @@ export default function ProfileScreen() {
                 </View>
               </View>
               
-              <Text style={styles.userName}>{userData.name}</Text>
-              <Text style={styles.userRank}>{userData.rank}</Text>
+              <Text style={styles.userName}>{userData.name || 'Cyber Warrior'}</Text>
+              <Text style={styles.userRank}>{getRankName()}</Text>
               
               <View style={styles.progressContainer}>
                 <View style={styles.progressBar}>
                   <View 
                     style={[
                       styles.progressFill, 
-                      { width: `${(userData.xp / userData.xpToNextLevel) * 100}%` }
+                      { width: `${xpProgress.percentage}%` }
                     ]} 
                   />
                 </View>
                 <Text style={styles.progressText}>
-                  {userData.xp}/{userData.xpToNextLevel} XP to Level {userData.level + 1}
+                  {xpProgress.current}/{xpProgress.total} XP to Level {userData.level + 1}
                 </Text>
               </View>
             </View>
@@ -187,21 +288,19 @@ export default function ProfileScreen() {
             <View style={styles.statsContainer}>
               <View style={styles.statCard}>
                 <MaterialIcons name="local-fire-department" size={28} color="#FF8C00" />
-                <Text style={styles.statValue}>{userData.streakDays}</Text>
+                <Text style={styles.statValue}>{userData.streak || 0}</Text>
                 <Text style={styles.statLabel}>Day Streak</Text>
               </View>
               
               <View style={styles.statCard}>
                 <MaterialIcons name="school" size={28} color="#3FFFA8" />
-                <Text style={styles.statValue}>{userData.totalLessonsCompleted}</Text>
+                <Text style={styles.statValue}>{totalLessonsCompleted}</Text>
                 <Text style={styles.statLabel}>Lessons</Text>
               </View>
               
               <View style={styles.statCard}>
                 <MaterialIcons name="emoji-events" size={28} color="#7F00FF" />
-                <Text style={styles.statValue}>
-                  {userData.progressData?.badges?.filter(b => b.earned).length || 0}
-                </Text>
+                <Text style={styles.statValue}>{earnedBadgesCount}</Text>
                 <Text style={styles.statLabel}>Badges</Text>
               </View>
             </View>
@@ -211,12 +310,14 @@ export default function ProfileScreen() {
               
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Birthday</Text>
-                <Text style={styles.infoValue}>{userData.birthday}</Text>
+                <Text style={styles.infoValue}>
+                  {userData.birthday ? format(new Date(userData.birthday), 'MMMM d, yyyy') : 'Not set'}
+                </Text>
               </View>
               
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Started</Text>
-                <Text style={styles.infoValue}>{userData.joinDate}</Text>
+                <Text style={styles.infoValue}>{formatJoinDate()}</Text>
               </View>
               
               <View style={styles.infoRow}>
@@ -237,8 +338,13 @@ export default function ProfileScreen() {
         <Pressable 
           style={styles.resetButton}
           onPress={handleResetProgress}
+          disabled={loading}
         >
-          <Text style={styles.resetButtonText}>Reset Progress</Text>
+          {loading ? (
+            <ActivityIndicator color="#FF5252" />
+          ) : (
+            <Text style={styles.resetButtonText}>Reset Progress</Text>
+          )}
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -267,7 +373,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   editButton: {
-    backgroundColor: 'rgba(63, 255, 168, 0.2)',
+    backgroundColor: 'rgba(63, 255, 168, 0.15)',
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -278,8 +384,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(127, 0, 255, 0.15)',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
     alignItems: 'center',
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#7F00FF',
   },
   avatarContainer: {
     position: 'relative',
@@ -309,6 +417,7 @@ const styles = StyleSheet.create({
   levelText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   userName: {
     fontSize: 24,
@@ -341,7 +450,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     opacity: 0.8,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -352,8 +461,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 16,
     padding: 15,
-    width: '31%',
     alignItems: 'center',
+    width: '31%',
   },
   statValue: {
     fontSize: 24,
@@ -367,7 +476,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   infoCard: {
-    backgroundColor: 'rgba(127, 0, 255, 0.15)',
+    backgroundColor: 'rgba(63, 255, 168, 0.1)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -386,12 +495,10 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   infoLabel: {
-    fontSize: 14,
     color: '#fff',
     opacity: 0.8,
   },
   infoValue: {
-    fontSize: 14,
     color: '#fff',
     fontWeight: '500',
   },
@@ -408,25 +515,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cardText: {
-    fontSize: 14,
     color: '#fff',
     opacity: 0.8,
     lineHeight: 20,
   },
-  resetButton: {
-    borderWidth: 1,
-    borderColor: '#FF5252',
-    borderRadius: 25,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  resetButtonText: {
-    fontSize: 16,
-    color: '#FF5252',
-  },
   editProfileCard: {
-    backgroundColor: 'rgba(127, 0, 255, 0.15)',
+    backgroundColor: 'rgba(63, 255, 168, 0.15)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -441,10 +535,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   inputLabel: {
-    fontSize: 14,
     color: '#fff',
-    opacity: 0.8,
-    marginBottom: 5,
+    marginBottom: 8,
+    fontSize: 16,
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -454,31 +547,42 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
   },
-  errorText: {
-    color: '#FF5252',
-    marginTop: 8,
-    marginBottom: 16,
-  },
   privacyNote: {
-    fontSize: 12,
     color: '#fff',
-    opacity: 0.6,
+    opacity: 0.7,
     marginVertical: 15,
-    fontStyle: 'italic',
+    fontSize: 12,
+    lineHeight: 18,
   },
   saveButton: {
     backgroundColor: '#3FFFA8',
-    borderRadius: 25,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
   },
+  saveButtonText: {
+    color: '#0B132B',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   disabledButton: {
     opacity: 0.5,
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0B132B',
+  errorText: {
+    color: '#FF5252',
+    marginTop: 5,
   },
+  resetButton: {
+    borderWidth: 1,
+    borderColor: '#FF5252',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  resetButtonText: {
+    color: '#FF5252',
+    fontWeight: 'bold',
+  }
 }); 
