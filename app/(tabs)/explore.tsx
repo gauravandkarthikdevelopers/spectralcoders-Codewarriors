@@ -18,36 +18,28 @@ export default function ExploreScreen() {
   const [showParentalControls, setShowParentalControls] = useState(false);
   const [showWebBrowser, setShowWebBrowser] = useState(false);
   
-  // Track if sleep mode is active
   const [isSleepModeActive, setIsSleepModeActive] = useState(parentalControls.sleepModeEnabled);
-  // Track if device is locked
   const [isDeviceLocked, setIsDeviceLocked] = useState(parentalControls.deviceLocked || false);
   
-  // Animation values
   const robotAnimation = useRef(new Animated.Value(0)).current;
   const gearAnimation = useRef(new Animated.Value(0)).current;
   
-  // Update sleep mode and device lock status when parentalControls changes
   useEffect(() => {
     setIsSleepModeActive(parentalControls.sleepModeEnabled);
     setIsDeviceLocked(parentalControls.deviceLocked || false);
     
-    // Register the app usage tracking background task
     registerBackgroundTasks();
     
-    // Log app usage for Explore section
     const interval = setInterval(() => {
       if (!parentalControls.sleepModeEnabled && !parentalControls.deviceLocked) {
-        logAppUsage('Explore', 1);  // Log 1 minute of usage
+        logAppUsage('Explore', 1);
       }
-    }, 60000);  // Every minute
+    }, 60000);
     
     return () => clearInterval(interval);
   }, [parentalControls]);
   
-  // Start the animations when the component mounts
   React.useEffect(() => {
-    // Robot animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(robotAnimation, {
@@ -63,7 +55,6 @@ export default function ExploreScreen() {
       ])
     ).start();
     
-    // Gear animation
     Animated.loop(
       Animated.timing(gearAnimation, {
         toValue: 1,
@@ -73,7 +64,6 @@ export default function ExploreScreen() {
     ).start();
   }, []);
   
-  // Transform the animations into styles
   const robotStyle = {
     transform: [
       {
@@ -97,11 +87,9 @@ export default function ExploreScreen() {
   };
   
   const handleSecretAreaTap = useCallback(() => {
-    // Increment tap count
     setSecretTapCount((prev) => {
       const newCount = prev + 1;
       
-      // If 3 taps, show password modal
       if (newCount >= 3) {
         setTimeout(() => {
           setShowPasswordModal(true);
@@ -110,7 +98,6 @@ export default function ExploreScreen() {
         return 0;
       }
       
-      // Reset after 2 seconds if not tapped again
       setTimeout(() => {
         setSecretTapCount(0);
       }, 2000);
@@ -149,17 +136,14 @@ export default function ExploreScreen() {
     logActivity('Closed web browser');
   }, [logActivity]);
   
-  // If device is locked, show lock screen
   if (isDeviceLocked) {
     return <LockScreen />;
   }
   
-  // If sleep mode is active, show the sleep mode screen
   if (isSleepModeActive) {
     return <SleepModeScreen onUnlock={handleExitSleepMode} />;
   }
   
-  // If web browser is shown
   if (showWebBrowser) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -178,7 +162,6 @@ export default function ExploreScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Content */}
       <View style={styles.content}>
         <Text style={styles.title}>Explore</Text>
         <Text style={styles.subtitle}>Learning Resources</Text>
@@ -243,7 +226,6 @@ export default function ExploreScreen() {
         </View>
       </View>
       
-      {/* Password Modal */}
       <Modal
         visible={showPasswordModal}
         transparent
@@ -258,7 +240,6 @@ export default function ExploreScreen() {
         </View>
       </Modal>
       
-      {/* Parental Controls Modal */}
       <Modal
         visible={showParentalControls}
         animationType="slide"

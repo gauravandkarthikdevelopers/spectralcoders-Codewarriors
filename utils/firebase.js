@@ -4,13 +4,13 @@ import uuid from 'react-native-uuid';
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDW2NktWx4FNJwj1qKgyp70LX2Eo33-tBc",
-  authDomain: "codewa-988e3.firebaseapp.com",
-  projectId: "codewa-988e3",
-  storageBucket: "codewa-988e3.firebasestorage.app",
-  messagingSenderId: "1063895230390",
-  appId: "1:1063895230390:web:b69e752a354efafdd38317",
-  measurementId: "G-SQTFPNLMLE"
+  apiKey: "AIzaSyCGyE4KFEArCZwFSDvfcRYJcwU9wvvVXXI",
+  authDomain: "codeworriors-2.firebaseapp.com",
+  projectId: "codeworriors-2",
+  storageBucket: "codeworriors-2.firebasestorage.app",
+  messagingSenderId: "61650179881",
+  appId: "1:61650179881:web:40d9a65ab8a4e4772e8938",
+  measurementId: "G-E7EZ3DRJEM"
 };
 
 // Initialize Firebase

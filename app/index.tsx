@@ -12,14 +12,12 @@ export default function Home() {
       
       <View style={styles.background}>
         <View style={styles.content}>
-          {/* Logo/Title Section */}
           <View style={styles.titleContainer}>
             <MaterialIcons name="security" size={60} color="#3FFFA8" />
             <Text style={styles.title}>Cyber Warriors</Text>
             <Text style={styles.subtitle}>Master Cybersecurity. Have Fun.</Text>
           </View>
 
-          {/* Features Section */}
           <View style={styles.featuresContainer}>
             <View style={styles.featureItem}>
               <MaterialIcons name="security" size={32} color="#3FFFA8" />
@@ -39,7 +37,6 @@ export default function Home() {
             </View>
           </View>
 
-          {/* Next Button */}
           <Link href="/(tabs)" asChild>
             <Pressable style={styles.nextButton}>
               <Text style={styles.nextButtonText}>Get Started</Text>

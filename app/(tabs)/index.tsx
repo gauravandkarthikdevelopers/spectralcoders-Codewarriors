@@ -9,27 +9,26 @@ import { useAppContext } from '../../context/AppContext';
 export default function HomeScreen() {
   const { userData, progressData } = useAppContext();
   
-  // Calculate XP to next level based on the level thresholds
   const getXPToNextLevel = () => {
     const levelThresholds = [
-      0,     // Level 0
-      100,   // Level 1
-      250,   // Level 2
-      450,   // Level 3
-      700,   // Level 4
-      1000,  // Level 5
-      1350,  // Level 6
-      1750,  // Level 7
-      2200,  // Level 8
-      2700,  // Level 9
-      3250   // Level 10
+      0,     
+      100,   
+      250,   
+      450,   
+      700,   
+      1000,  
+      1350,  
+      1750,  
+      2200,  
+      2700,  
+      3250   
     ];
     
     const currentLevel = userData.level;
     const nextLevel = currentLevel + 1;
     
     if (nextLevel >= levelThresholds.length) {
-      return 0; // Max level reached
+      return 0; 
     }
     
     const currentLevelXP = levelThresholds[currentLevel];
@@ -46,14 +45,12 @@ export default function HomeScreen() {
   
   const xpProgress = getXPToNextLevel();
   
-  // Get completed modules count
   const completedModules = Object.values(progressData.modules).filter(
     module => module.progress === 100
   ).length;
   
   const totalModules = Object.values(progressData.modules).length;
   
-  // Get rank name based on level
   const getRankName = () => {
     if (userData.level >= 8) return 'Cyber Commander';
     if (userData.level >= 5) return 'Cyber Warrior';
@@ -73,7 +70,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Level Progress */}
         <View style={styles.card}>
           <View style={styles.levelHeader}>
             <View>
@@ -100,7 +96,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Daily Challenge */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Daily Challenge</Text>
@@ -116,7 +111,6 @@ export default function HomeScreen() {
           </Link>
         </View>
 
-        {/* Continue Learning */}
         <Text style={styles.sectionTitle}>Continue Learning</Text>
         
         {progressData.modules.password && (
@@ -194,7 +188,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Achievement Progress */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Recent Achievements</Text>

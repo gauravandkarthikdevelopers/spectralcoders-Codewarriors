@@ -143,7 +143,6 @@ export async function registerBackgroundTasks() {
       stopOnTerminate: false,
       startOnBoot: true,
     });
-    console.log('Sleep mode background task registered');
     return true;
   } catch (err) {
     console.log('Sleep mode background task registration failed:', err);
